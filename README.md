@@ -35,7 +35,83 @@ Rxjava是基于异步事件的，到底啥是“异步事件”呢？我们刚�
 
 有了流程简介这里就很好入手了，创建“观察者”、被观察者。然后让被观察者订阅事件即可。
 
+```java
 
+class MainActivity : AppCompatActivity() {
+    companion object {
+        private const val TAG = "MainActivity"
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        basicUsage()
+    }
+
+    /**
+     * 基本使用
+     * */
+    private fun basicUsage() {
+        // 1、创建观察者
+        val subscriber = object : Subscriber<String>() {
+            override fun onStart() {
+                logD(TAG) {
+                    "onStart"
+                }
+            }
+
+            override fun onCompleted() {
+                logD(TAG) {
+                    "onCompleted"
+                }
+            }
+
+            override fun onError(e: Throwable?) {
+                logD(TAG) {
+                    "onError"
+                }
+                e?.printStackTrace()
+            }
+
+            override fun onNext(t: String?) {
+                logD(TAG) {
+                    "onNext:$t"
+                }
+            }
+        }
+        // 2、创建被观察者
+        val observable = Observable.create(object : Observable.OnSubscribe<String> {
+            override fun call(t: Subscriber<in String>?) {
+                // 被观察者做事情
+                t?.let {
+                    //通过onNext触发事件
+                    it.onNext("hello")
+                    it.onNext("RxJava")
+                }
+            }
+        })
+
+        // 3、被观察者注册观察者
+        observable.subscribe(subscriber)
+
+        /**
+        log:
+        D/MainActivity: onStart
+        D/MainActivity: onNext:hello
+        D/MainActivity: onNext:RxJava
+         * */
+    }
+
+    /**
+     * log封装，方便使用。
+     * */
+    private fun logD(tag: String, msg: () -> String) {
+        Log.d(tag, msg.invoke())
+    }
+}
+```
+
+其实也是很好理解的，
 
 # 参考
 
@@ -46,7 +122,6 @@ Rxjava是基于异步事件的，到底啥是“异步事件”呢？我们刚�
 [RxAndroid](https://github.com/ReactiveX/RxAndroid)
 
 [Carson带你学Android：这是一份全面 & 详细的RxJava学习指南](https://www.jianshu.com/p/d9b504f5b3bd)
-
 
 
 
