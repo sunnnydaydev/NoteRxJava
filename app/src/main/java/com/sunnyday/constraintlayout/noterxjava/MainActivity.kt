@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.util.Log
 import rx.Observable
 import rx.Subscriber
+import rx.functions.Action0
+import rx.functions.Action1
 
 
 class MainActivity : AppCompatActivity() {
@@ -15,8 +17,12 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-       // basicUsage()
-        knownUsage()
+        // basicUsage()
+        // knownUsage()
+        // createObservableQuicklyByJust()
+        // createObservableQuicklyByFrom()
+       // action1Usage()
+        actionUsage()
     }
 
     /**
@@ -109,6 +115,121 @@ class MainActivity : AppCompatActivity() {
             }
 
         })
+    }
+
+    /**
+     * 使用just快速创建Observable对象，并触发事件。
+     * */
+    private fun createObservableQuicklyByJust() {
+        Observable.just("hello", "RxJava")
+            .subscribe(object : Subscriber<String>() {
+                override fun onStart() {
+                    logD(TAG) {
+                        "createObservableQuickly#onStart"
+                    }
+                }
+
+                override fun onCompleted() {
+                    logD(TAG) {
+                        "createObservableQuickly#onCompleted"
+                    }
+                }
+
+                override fun onError(e: Throwable?) {
+                    logD(TAG) {
+                        "createObservableQuickly#onError"
+                    }
+                }
+
+                override fun onNext(t: String?) {
+                    logD(TAG) {
+                        "createObservableQuickly#onNext:$t"
+                    }
+                }
+
+            })
+    }
+
+    /**
+     * 使用from快速创建Observable对象，并触发事件。
+     * */
+    private fun createObservableQuicklyByFrom() {
+        //int 类型数组，onNext中发射int 类型数据
+        val arr = arrayOf(1, 2)
+        Observable.from(arr)
+            .subscribe(object : Subscriber<Int>() {
+                override fun onStart() {
+                    logD(TAG) {
+                        "createObservableQuicklyByFrom#onStart"
+                    }
+                }
+
+                override fun onCompleted() {
+                    logD(TAG) {
+                        "createObservableQuicklyByFrom#onCompleted"
+                    }
+                }
+
+                override fun onError(e: Throwable?) {
+                    logD(TAG) {
+                        "createObservableQuicklyByFrom#onError"
+                    }
+                }
+
+                override fun onNext(t: Int) {
+                    logD(TAG) {
+                        "createObservableQuicklyByFrom#onNext:$t"
+                    }
+                }
+
+            })
+    }
+
+    private fun action1Usage() {
+        Observable.just("hello", "Rxjava")
+            .subscribe(object : Action1<String> {
+                // 处理onNext事件
+                override fun call(t: String?) {
+                    logD(TAG) {
+                        "action1Usage#call:$t"
+                    }
+                }
+            })
+    }
+
+    /**
+     * Action用法：使用受Observable#subscribe限制。
+     * action0->onCompleted
+     * action1 ->onNext
+     * action1 ->onError
+     * */
+    private fun actionUsage() {
+        Observable.just("hello", "Rxjava")
+            .subscribe(
+                // 处理onNext事件
+                object : Action1<String> {
+                    override fun call(t: String?) {
+                        logD(TAG) {
+                            "actionUsage#Action1:$t"
+                        }
+                    }
+                },
+                // 对应onError 功能，just中触发时这里回调。
+                object : Action1<Throwable> {
+                    override fun call(t: Throwable?) {
+                        logD(TAG) {
+                            "actionUsage#Action1:$t"
+                        }
+                    }
+                },
+                object : Action0 {
+                    override fun call() {
+                        logD(TAG) {
+                            "actionUsage#Action0"
+                        }
+                    }
+                }
+            )
     }
 
     /**

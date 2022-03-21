@@ -232,6 +232,219 @@ public class Observable<T> {
     }
 ```
 
+###### 2、Observable的简洁创建法
+
+create方法创建Observable对象时需要提供OnSubscribe实现类对象，并且需要手动调用onNext。其实Observable还提供了其他的方法可以帮互我们快速创建，触发事件。
+
+- public static < T > Observable< T > just(final T value)：Observable提供了10个just重载方法，只是参数个数不同而已。
+- public static < T > Observable< T > from(T[] array) ：Observable提供了好几个from重载方法，最常用的from方法就是传递一个泛型数组。
+
+（1）just
+
+```java
+    /**
+     * 使用just快速创建Observable对象，并触发事件。
+     * */
+    private fun createObservableQuicklybyJust() {
+        Observable.just("hello", "RxJava")
+            .subscribe(object : Subscriber<String>() {
+                override fun onStart() {
+                    logD(TAG) {
+                        "createObservableQuickly#onStart"
+                    }
+                }
+                override fun onCompleted() {
+                    logD(TAG) {
+                        "createObservableQuickly#onCompleted"
+                    }
+                }
+
+                override fun onError(e: Throwable?) {
+                    logD(TAG) {
+                        "createObservableQuickly#onError"
+                    }
+                }
+
+                override fun onNext(t: String?) {
+                    logD(TAG) {
+                        "createObservableQuickly#onNext:$t"
+                    }
+                }
+
+            })
+    }
+log:
+ D/MainActivity: createObservableQuickly#onStart
+ D/MainActivity: createObservableQuickly#onNext:hello
+ D/MainActivity: createObservableQuickly#onNext:RxJava
+ D/MainActivity: createObservableQuickly#onCompleted
+```
+
+可见just比create更加简洁，内部自动完成了很多工作，我们把想要触发的“事件”当做参数传递过来即可。just自动完成发射工作。
+
+在create中onCompleted需要的话还需要我们手动去调用，这里就不需要，真的方便多了。
+
+（2）from
+
+```java
+    /**
+     * 使用from快速创建Observable对象，并触发事件。
+     * */
+    private fun createObservableQuicklyByFrom() {
+        //int 类型数组，onNext中发射int 类型数据
+        val arr = arrayOf(1, 2)
+        Observable.from(arr)
+            .subscribe(object : Subscriber<Int>() {
+                override fun onStart() {
+                    logD(TAG) {
+                        "createObservableQuicklyByFrom#onStart"
+                    }
+                }
+                override fun onCompleted() {
+                    logD(TAG) {
+                        "createObservableQuicklyByFrom#onCompleted"
+                    }
+                }
+
+                override fun onError(e: Throwable?) {
+                    logD(TAG) {
+                        "createObservableQuicklyByFrom#onError"
+                    }
+                }
+
+                override fun onNext(t: Int) {
+                    logD(TAG) {
+                        "createObservableQuicklyByFrom#onNext:$t"
+                    }
+                }
+
+            })
+    }
+log:
+D/MainActivity: createObservableQuicklyByFrom#onStart
+D/MainActivity: createObservableQuicklyByFrom#onNext:1
+D/MainActivity: createObservableQuicklyByFrom#onNext:2
+D/MainActivity: createObservableQuicklyByFrom#onCompleted
+```
+
+可见from功能与just功能差不多，接收一个数组类型参数，吧数组每一元素当做onNext的数据发射出去。只是功能比just更加强大，just只提供了10个方法重载，只是参数个数不同。
+
+###### 3、Subscriber的不完全回调
+
+Subscriber为抽象类，实现了Observer接口，当直接创建一个Subscriber实现类时一般我们需要实现Observer接口中定义的全部方法。而Rxjava提供了一个特殊类Action这个类中不需要实现所有的方法：
+
+```java
+    private fun action1Usage() {
+        Observable.just("hello","Rxjava")
+            .subscribe(object : Action1<String> {
+                // 处理onNext事件
+                override fun call(t: String?) {
+                    logD(TAG) {
+                        "action1Usage#call:$t"
+                    }
+                }
+            })
+    }
+log:
+D/MainActivity: action1Usage#call:hello
+D/MainActivity: action1Usage#call:Rxjava
+```
+
+上述是Action1类的用法，其实Action1就可以看做onNext(t:T) 类型的数据。此外Rxjava提供了Action0，Action1,,,,Action10等一些列类，区别就是相当于onNext(t:T) 参数个数不同。如：
+
+```java
+/**
+ * A zero-argument action.
+ */
+public interface Action0 extends Action {
+    void call();
+}
+/**
+ * A two-argument action.
+ * @param <T1> the first argument type
+ * @param <T2> the second argument type
+ */
+public interface Action2<T1, T2> extends Action {
+    void call(T1 t1, T2 t2);
+}
+```
+
+Action1其实就是处理onNext事件的，Action1其实就是处理onNext事件的，Action1其实就是处理onNext事件的，那么onCompleted、onError对应的有方法吗？其实是有的：
+
+```java
+                // 对应onError 功能，被观察者中触发时这里就回调。
+                // 可见就是泛型限定参数为Throwable时就可对应onError 功能
+                object : Action1<Throwable> {
+                    override fun call(t: Throwable?) {
+
+                    }
+                }
+               //对应onCompleted的功能。
+                object : Action0 {
+                    override fun call() {
+                    }
+                }
+
+```
+
+其实Action1、Action0是不能单独使用的，受Observable#subscribe方法影响~
+
+```java
+//1、只需要一个Action1<? super T>类型的参数，代表只有onNext的功能
+public final Subscription subscribe(final Action1<? super T> onNext)
+    
+//2、在上面的基础上多了 Action1<Throwable>类型的参数，代表增加了onError的功能。   
+public final Subscription subscribe(final Action1<? super T> onNext, 
+                                    final Action1<Throwable> onError)
+//3、在上面的基础上又多了 final Action0 ，代表增加了onCompleted的功能  
+public final Subscription subscribe(final Action1<? super T> onNext, 
+                                    final Action1<Throwable> onError, 
+                                    final Action0 onCompleted)
+    
+public final Subscription subscribe(final Observer<? super T> observer)
+```
+
+接下来就可以看下Action0，final Action1< Throwable >的用法了：
+
+```java
+    /**
+     * Action用法：使用受Observable#subscribe限制。
+     * action0->onCompleted
+     * action1 ->onNext
+     * action1 ->onError
+     * */
+    private fun actionUsage() {
+        Observable.just("hello", "Rxjava")
+            .subscribe(
+                // 处理onNext事件
+                object : Action1<String> {
+                    override fun call(t: String?) {
+                        logD(TAG) {
+                            "actionUsage#Action1:$t"
+                        }
+                    }
+                },
+                // 对应onError 功能，just中触发时这里回调。
+                object : Action1<Throwable> {
+                    override fun call(t: Throwable?) {
+                        logD(TAG) {
+                            "actionUsage#Action1:$t"
+                        }
+                    }
+                },
+                object : Action0 {
+                    override fun call() {
+                        logD(TAG) {
+                            "actionUsage#Action0"
+                        }
+                    }
+                }
+            )
+    }
+```
+
+
+
 
 
 # 参考
