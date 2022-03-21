@@ -1,4 +1,4 @@
-package com.sunnyday.constraintlayout.noterxjava
+package com.sunnyday
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.sunnyday.constraintlayout.noterxjava", appContext.packageName)
+        assertEquals("com.sunnyday.noterxjava", appContext.packageName)
     }
 }

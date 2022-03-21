@@ -1,12 +1,18 @@
-package com.sunnyday.constraintlayout.noterxjava
+package com.sunnyday.noterxjava
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import com.sunnyday.noterxjava.beans.Course
+import com.sunnyday.noterxjava.beans.Student
+import kotlinx.android.synthetic.main.activity_main.*
 import rx.Observable
 import rx.Subscriber
 import rx.functions.Action0
 import rx.functions.Action1
+import rx.functions.Func1
 
 
 class MainActivity : AppCompatActivity() {
@@ -21,8 +27,11 @@ class MainActivity : AppCompatActivity() {
         // knownUsage()
         // createObservableQuicklyByJust()
         // createObservableQuicklyByFrom()
-       // action1Usage()
-        actionUsage()
+        // action1Usage()
+        // actionUsage()
+        // mapDemo()
+       // printStudentName()
+        printStudentCourseByFlatMap()
     }
 
     /**
@@ -231,6 +240,82 @@ class MainActivity : AppCompatActivity() {
                 }
             )
     }
+
+    /**
+     * Rxjava 操作符Map.
+     * */
+    private fun mapDemo() {
+        val path = cacheDir.absolutePath + "/1.png"
+        Observable.just(path)
+            .map(object : Func1<String, Bitmap> {
+                override fun call(t: String?): Bitmap {
+                    return createBitmap(t)
+                }
+
+            }).subscribe(object : Action1<Bitmap> {
+                override fun call(t: Bitmap) {
+                    img.setImageBitmap(t)
+                }
+            })
+    }
+
+    private fun createBitmap(path: String?): Bitmap {
+        return BitmapFactory.decodeFile(path)
+    }
+
+    /**
+     * flapMap:
+     * 1对多装换
+     * */
+    private fun printStudentCourseByFlatMap() {
+        val tomCourse = listOf(
+            Course("线性代数", 80),
+            Course("C语言", 90)
+        )
+        val kateCourse = listOf(
+            Course("线性代数", 70),
+            Course("C语言", 100)
+        )
+        val students = arrayOf(Student("Tom", tomCourse), Student("kate", kateCourse))
+        //使用flapMap，参数还是Func1，但是Func1的第二个参数是Observable<T> 类型
+        Observable.from(students).flatMap(object : Func1<Student, Observable<Course>> {
+            override fun call(t: Student?): Observable<Course> {
+                // 包装成Observable对象返回。
+                return Observable.from(t?.mList)
+            }
+
+        }).subscribe(object : Action1<Course> {
+            override fun call(t: Course?) {
+                // 直接拿到Course对象
+                logD(TAG) { "Course:$t" }
+            }
+        })
+    }
+
+    private fun printStudentName() {
+        val tomCourse = listOf(
+            Course("线性代数", 80),
+            Course("C语言", 90)
+        )
+        val kateCourse = listOf(
+            Course("线性代数", 70),
+            Course("C语言", 100)
+        )
+        val students = arrayOf(Student("Tom", tomCourse), Student("kate", kateCourse))
+        Observable.from(students).subscribe(
+            object : Action1<Student> {
+                override fun call(t: Student?) {
+                    val courseList = t?.mList
+                    courseList?.forEach {
+                        logD(TAG) {
+                            val info = "学生:${t.name} $it"
+                            info
+                        }
+                    }
+                }
+            })
+    }
+
 
     /**
      * log封装，方便使用。

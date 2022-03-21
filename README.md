@@ -445,7 +445,166 @@ public final Subscription subscribe(final Observer<? super T> observer)
 
 
 
+# 常见操作符
 
+###### 1、map
+
+```java
+      public final <R> Observable<R> map(Func1<? super T, ? extends R> func) {
+        return lift(new OperatorMap<T, R>(func));
+    }
+```
+
+这个方法用来做数据转换，参数是Func1类型的参数，Func1与Action1 用法类似唯一区别就是 Func1 带返回值的。
+
+Func1 的泛型需要两个参数T、R。分别代表输入数据、输出数据。接下来看个栗子，根据提供的png文件path来获取bitmap：
+
+```java
+    /**
+     * Rxjava 操作符Map.
+     * */
+    private fun mapDemo() {
+        //png 文件在本地path
+       val path = cacheDir.absolutePath+"/1.png"
+       Observable.just(path)
+           //数据流经map时，会最为map的“输入参数” 进行转换。
+           .map(object : Func1<String,Bitmap> {
+               /**
+               call方法的含义：输入String类型参数，返回Bitmap类型对象。
+               方法的具体转换过程由开发者自己实现。
+               */ 
+               override fun call(t: String?): Bitmap {
+                  return createBitmap(t)
+               }
+
+           }).subscribe(object : Action1<Bitmap> {
+               override fun call(t: Bitmap) {
+                 img.setImageBitmap(t)
+               }
+           })
+    }
+    
+    // 创建Bitmap对象
+    private fun createBitmap(path:String?): Bitmap {
+        return BitmapFactory.decodeFile(path)
+    }
+```
+
+###### 2、flatMap
+
+以一个栗子来引入吧~
+
+```java
+/**
+ * Create by SunnyDay on 20:48 2022/03/21
+ */
+data class Student(val name: String)
+
+data class Course(val name: String, val score: Int)
+```
+
+
+
+假如有个需求输入一组“学生”，获取学生姓名。map轻轻松松实现~
+
+```java
+    private fun printStudentName(){
+        val tomCourse = listOf(
+            Course("线性代数",80),
+            Course("C语言",90)
+        )
+        val kateCourse = listOf(
+            Course("线性代数",70),
+            Course("C语言",100)
+        )
+      val students = arrayOf(Student("Tom",tomCourse),Student("kate",kateCourse))
+        Observable.from(students).map{
+             it.name
+        }.subscribe(object : Action1<String> {
+            override fun call(t: String?) {
+             logD(TAG){"studentName:$t"}
+            }
+        })
+    }
+```
+
+这时需求变了需要查看每个学生的每一门的课程,这时我们或许会考虑下，map不能使用了，或许我还要循环打印数据，然后：
+
+```java
+   private fun printStudentCourseByLoop() {
+        val tomCourse = listOf(
+            Course("线性代数", 80),
+            Course("C语言", 90)
+        )
+        val kateCourse = listOf(
+            Course("线性代数", 70),
+            Course("C语言", 100)
+        )
+        val students = arrayOf(Student("Tom", tomCourse), Student("kate", kateCourse))
+        Observable.from(students).subscribe(
+            object : Action1<Student> {
+                override fun call(t: Student?) {
+                    val courseList = t?.mList
+                    courseList?.forEach {
+                        logD(TAG) {
+                            val info = "学生:${t.name} $it"
+                            info
+                        }
+                    }
+                }
+            })
+    }
+log:
+ D/MainActivity: 学生:Tom Course(name=线性代数, score=80)
+ D/MainActivity: 学生:Tom Course(name=C语言, score=90)
+ D/MainActivity: 学生:kate Course(name=线性代数, score=70)
+ D/MainActivity: 学生:kate Course(name=C语言, score=100)
+```
+
+如果我们不想在观察者中（Action1）使用循环，那该怎没办呢？
+
+这时我们或许希望向map那样直接传入单个的 Student对象就好了，然后输出学生的每个Course。
+
+可是map做不到这个功能因为学生1个，一个学生有很多课程，这是个1对多的关系，map只能处理1对1的关系~
+
+这时使用flatMap可以解决这个问题：
+
+```java
+    /**
+     * flapMap:
+     * 1对多装换
+     * */
+    private fun printStudentCourseByFlatMap() {
+        val tomCourse = listOf(
+            Course("线性代数", 80),
+            Course("C语言", 90)
+        )
+        val kateCourse = listOf(
+            Course("线性代数", 70),
+            Course("C语言", 100)
+        )
+        val students = arrayOf(Student("Tom", tomCourse), Student("kate", kateCourse))
+        //使用flapMap，参数还是Func1，但是Func1的第二个参数是Observable<T> 类型
+        Observable.from(students).flatMap(object : Func1<Student, Observable<Course>> {
+            override fun call(t: Student?): Observable<Course> {
+                // 包装成Observable对象返回。
+                return Observable.from(t?.mList)
+            }
+
+        }).subscribe(object : Action1<Course> {
+            override fun call(t: Course?) {
+                // 直接拿到Course对象
+                logD(TAG) { "Course:$t" }
+            }
+        })
+    }
+```
+
+Rxjava 操作符有很多，引入两个吧，后续的再查阅学习~
+
+# 线程调度
+
+待续~
 
 # 参考
 
