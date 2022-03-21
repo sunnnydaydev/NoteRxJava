@@ -15,7 +15,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        basicUsage()
+       // basicUsage()
         knownUsage()
     }
 
@@ -81,6 +81,7 @@ class MainActivity : AppCompatActivity() {
             it.onNext("hello")
             it.onNext("RxJava")
             it.onNext((1 / 0).toString())
+            it.onCompleted()
         }).subscribe(object : Subscriber<String>() {
             override fun onStart() {
                 logD(TAG) {
