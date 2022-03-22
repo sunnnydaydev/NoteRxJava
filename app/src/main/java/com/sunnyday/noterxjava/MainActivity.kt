@@ -316,6 +316,68 @@ class MainActivity : AppCompatActivity() {
             })
     }
 
+    /**
+     * Rxjava 操作符Map.
+     * */
+    private fun mapDemoWithThreadSchedule() {
+        val path = cacheDir.absolutePath + "/1.png"
+        Observable.just(path)
+            .subscribeOn(Schedulers.newThread())//Observable 在子线程中被创建
+            .subscribeOn(Schedulers.io())//接下来代码运行在io线程中。
+            .map(object : Func1<String, Bitmap> {
+                override fun call(t: String?): Bitmap {
+                    logD(TAG) {
+                        "currentThread:${Thread.currentThread()}"
+                    }
+                    return createBitmap(t)
+                }
+            })
+            .observeOn(AndroidSchedulers.mainThread())//接下来代码运行在安卓主线程
+            .subscribeOn(Schedulers.io())//指定无效，只能指定一次
+            .subscribe(object : Action1<Bitmap> {
+                override fun call(t: Bitmap) {
+                    // img.setImageBitmap(t)
+                    logD(TAG) {
+                        "currentThread:${Thread.currentThread()}"
+                    }
+                }
+            })
+    }
+
+    private fun threadSchedulers() {
+        Observable.create(object : Observable.OnSubscribe<String> {
+            override fun call(t: Subscriber<in String>?) {
+                t?.let {
+                    it.onNext("")
+                }
+                logD(TAG) {
+                    "call#currentThread:${Thread.currentThread()}"
+                }
+            }
+
+        }).subscribeOn(Schedulers.newThread())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(object : Subscriber<String>() {
+
+                override fun onCompleted() {
+                    logD(TAG) {
+                        "onCompleted#currentThread:${Thread.currentThread()}"
+                    }
+                }
+
+                override fun onError(e: Throwable?) {
+                    logD(TAG) {
+                        "onError#currentThread:${Thread.currentThread()}"
+                    }
+                }
+
+                override fun onNext(t: String?) {
+                    logD(TAG) {
+                        "onNext#currentThread:${Thread.currentThread()}"
+                    }
+                }
+            })
+    }
 
     /**
      * log封装，方便使用。
