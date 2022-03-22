@@ -31,6 +31,17 @@ Rxjava是基于异步事件的，到底啥是“异步事件”呢？我们刚�
 
 # 使用
 
+首先可以添加下依赖~
+
+```java
+//    implementation 'io.reactivex.rxjava3:rxandroid:3.0.0'
+//    implementation 'io.reactivex.rxjava3:rxjava:3.0.0'
+    implementation 'io.reactivex:rxjava:1.1.6'
+    implementation 'io.reactivex:rxandroid:1.2.1'
+```
+
+
+
 ###### 1、基本使用
 
 有了流程简介这里就很好入手了，创建“观察者”、被观察者。然后让被观察者订阅观察者即可。这样被观察者触发事件时，观察者就能立即收到响应。
@@ -604,7 +615,196 @@ Rxjava 操作符有很多，引入两个吧，后续的再查阅学习~
 
 # 线程调度
 
-待续~
+先来回顾下学习map操作符的栗子：
+
+```java
+
+    /**
+     * Rxjava 操作符Map.
+     * */
+    private fun mapDemo() {
+        val path = cacheDir.absolutePath + "/1.png"
+        Observable.just(path)
+            .map(object : Func1<String, Bitmap> {
+                override fun call(t: String?): Bitmap {
+                    //应当运行在子线程
+                    return createBitmap(t)
+                }
+
+            }).subscribe(object : Action1<Bitmap> {
+                override fun call(t: Bitmap) {
+                  //应当运行在主线程
+                    img.setImageBitmap(t)
+                }
+            })
+    }
+
+    private fun createBitmap(path: String?): Bitmap {
+        return BitmapFactory.decodeFile(path)
+    }
+```
+
+这段程序其实是有问题的，按照开发中的实际场景，bitmap的创建应该运行在子线程中，UI的更新应该运行在主线程中这时Rxjava的线程调度就可以发挥作用了~
+
+在Rxjava中切换线程有两个方法
+
+- public final Observable< T > subscribeOn(Scheduler scheduler):Observable在一个指定的调度器上创建。注意这个方法很特别，只作用于”被观察者创建阶段“，”只能指定一次“，”如果指定多次则以第一次为准“
+- public final Observable<T> observeOn(Scheduler scheduler) ：指定在事件传递（加工变换）和最终被处理（观察者）的发生在哪一个调度器。可指定多次，每次指定完都在下一步生效。
+
+上述栗子修改
+
+```java
+   /**
+     * Rxjava 操作符Map.
+     * */
+    private fun mapDemoWithThreadSchedule() {
+        val path = cacheDir.absolutePath + "/1.png"
+        Observable.just(path)
+            .subscribeOn(Schedulers.newThread())//Observable 在子线程中被创建
+            .subscribeOn(Schedulers.io())//接下来代码运行在io线程中。
+            .map(object : Func1<String, Bitmap> {
+                override fun call(t: String?): Bitmap {
+                logD(TAG){
+                    "currentThread:${Thread.currentThread()}"
+                }
+                    return createBitmap(t)
+                }
+            })
+            .observeOn(AndroidSchedulers.mainThread())//接下来代码运行在安卓主线程
+            .subscribeOn(Schedulers.io())//指定无效，只能指定一次
+            .subscribe(object : Action1<Bitmap> {
+                override fun call(t: Bitmap) {
+                    img.setImageBitmap(t)
+                    logD(TAG){
+                        "currentThread:${Thread.currentThread()}"
+                    }
+                }
+            })
+    }
+
+    private fun createBitmap(path: String?): Bitmap {
+        return BitmapFactory.decodeFile(path)
+    }
+
+log:
+D/MainActivity: currentThread:Thread[RxNewThreadScheduler-1,5,main]
+D/MainActivity: currentThread:Thread[main,5,main]
+```
+
+可见subscribeOn就一个作用，指定”被观察者“创建的线程。
+
+当事件”被发射“到”观察者观察到事件“这一阶段就需要使用observeOn来进行任务调度了。而且observeOn之后的代码运行在observeOn所指定的线程。
+
+再来个栗子实战下
+
+```java
+    private fun threadSchedulers() {
+        Observable.create(object : Observable.OnSubscribe<String> {
+            override fun call(t: Subscriber<in String>?) {
+                t?.let {
+                   it.onNext("")
+                }
+                logD(TAG) {
+                    "call#currentThread:${Thread.currentThread()}"
+                }
+            }
+
+        }).subscribeOn(Schedulers.newThread())
+            .subscribe(object : Subscriber<String>() {
+
+            override fun onCompleted() {
+                logD(TAG) {
+                    "onCompleted#currentThread:${Thread.currentThread()}"
+                }
+            }
+
+            override fun onError(e: Throwable?) {
+                logD(TAG) {
+                    "onError#currentThread:${Thread.currentThread()}"
+                }
+            }
+
+            override fun onNext(t: String?) {
+                logD(TAG) {
+                    "onNext#currentThread:${Thread.currentThread()}"
+                }
+            }
+        })
+    }
+//log:
+D/MainActivity: onNext#currentThread:Thread[RxNewThreadScheduler-1,5,main]
+D/MainActivity: call#currentThread:Thread[RxNewThreadScheduler-1,5,main]
+```
+
+可见只指定subscribeOn时，观察者、被观察者运行在相同的线程。
+
+在进行测试
+
+```java
+    private fun threadSchedulers() {
+        Observable.create(object : Observable.OnSubscribe<String> {
+            override fun call(t: Subscriber<in String>?) {
+                t?.let {
+                    it.onNext("")
+                }
+                logD(TAG) {
+                    "call#currentThread:${Thread.currentThread()}"
+                }
+            }
+
+        }).subscribeOn(Schedulers.newThread())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(object : Subscriber<String>() {
+
+                override fun onCompleted() {
+                    logD(TAG) {
+                        "onCompleted#currentThread:${Thread.currentThread()}"
+                    }
+                }
+
+                override fun onError(e: Throwable?) {
+                    logD(TAG) {
+                        "onError#currentThread:${Thread.currentThread()}"
+                    }
+                }
+
+                override fun onNext(t: String?) {
+                    logD(TAG) {
+                        "onNext#currentThread:${Thread.currentThread()}"
+                    }
+                }
+            })
+    }
+//log
+D/MainActivity: call#currentThread:Thread[RxNewThreadScheduler-1,5,main]
+D/MainActivity: onNext#currentThread:Thread[main,5,main]
+```
+
+
+
+好了已经差不多了，前面看到有不同的调度类型，这里就再总结下这个~
+
+
+
+| RxJava调度器类型                      | 效果                                       |
+| -------------------------------- | ---------------------------------------- |
+| Scheduler.computation            | 用于计算任务，如事件循环或和回调处理，不要用于IO操作默认线程数等于cpu个数。 |
+| Scheduler.from(Executor executor | 指定一个executer作为调度器。                       |
+| Scheduler.immediate()            | 在当前线程立即开始执行任务。                           |
+| Scheduler.io()                   | 适用于IO密集型任务，这个调度器的线程池会根据需要增长，默认是CacheThreadScheduler。 |
+| Scheduler.newThread()            | 为每个任务创建一个新线程。                            |
+| Scheduler.trampoline()           | 当其排队的任务完成后，在当前线程排队开始执行。                  |
+
+
+
+| RxAndroid调度器类型                        | 效果                  |
+| ------------------------------------- | ------------------- |
+| AndroidSchedulers.mainThread()        | 当前任务运行在安卓主线程。       |
+| AndroidSchedulers.from(Looper looper) | 当前任务运行在指定的looper线程。 |
+
+# 总结
+
+总体来说过了一遍，不过操作符和Rxjava2+等还需要后续再了解了~
 
 # 参考
 
