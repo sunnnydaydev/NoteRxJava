@@ -509,7 +509,7 @@ Func1 的泛型需要两个参数T、R。分别代表输入数据、输出数据
 /**
  * Create by SunnyDay on 20:48 2022/03/21
  */
-data class Student(val name: String)
+data class Student(val name: String,val mList:List<Course>)
 
 data class Course(val name: String, val score: Int)
 ```
@@ -610,6 +610,76 @@ log:
         })
     }
 ```
+
+###### 3、总结
+
+```java
+public final <R> Observable<R> map(Func1<? super T, ? extends R> func) {
+        return lift(new OperatorMap<T, R>(func));
+    }
+    
+public final <R> Observable<R> flatMap(Func1<? super T, ? extends Observable<? extends R>> func) {
+        if (getClass() == ScalarSynchronousObservable.class) {
+        return ((ScalarSynchronousObservable<T>)this).scalarFlatMap(func);
+        }
+        return merge(map(func));
+        }
+```
+
+map与flatMap有啥区别呢？
+
+（1）map
+
+map这个方法用来做数据转换，参数是Func1类型的参数，Func1与Action1 用法类似唯一区别就是 Func1 带返回值的。
+
+Func1 的泛型需要两个参数T、R。分别代表输入数据、输出数据。
+
+T就是Observable的数据类型，R就是用户想要转换为的数据类型：
+
+```kotlin
+ //这里Observable.from为Observable<Student>类型，经过Map转换后就是Observable<String>类型
+ Observable.from(students).map{
+             it.name
+        }
+```
+
+（2）flatMap
+
+flatMap同样是用来做转化的，接受的参数同样是Func1类型的参数，但是Func1的泛型参数不同flatMap吧类型T转化为
+
+Observable<R>,而不是R：
+
+```java
+        Observable.from(students).flatMap(object : Func1<Student, Observable<Course>> {
+            override fun call(t: Student?): Observable<Course> {
+                // 包装成Observable<R>对象返回。
+                return Observable.from(t?.mList)
+            }
+
+        })
+```
+
+表面上看二者的都是把Observable<T> 转化为Observable<R>但内部Fun1函数需要泛型参数细节不同，实现细节也不同。
+
+flatmap把一个Observable变成多个Observable，然后把得到的多个Obervable的元素一个个的发射出去。
+
+因此flatMap常常用来做有依赖关系的事情，如上面拿到每个学生，然后再根据学生获取学生的每门课具体信息。工作中最常见的就是
+接口的依赖如接口b需要接口a的结果：
+
+```kotlin
+      api.getUserInfo()
+            .flatMap {
+                // 1、首先请求Token
+                getToken().map { _ ->
+                    it
+                }
+            }.subscribe{
+                //2、拿到Token接口返回的token信息
+                
+                // 通过token再请求user接口
+            }
+```
+
 
 Rxjava 操作符有很多，引入两个吧，后续的再查阅学习~
 
@@ -807,6 +877,8 @@ D/MainActivity: onNext#currentThread:Thread[main,5,main]
 总体来说过了一遍，不过操作符和Rxjava2+等还需要后续再了解了~
 
 # 参考
+
+[RxJava 操作符flatmap](https://blog.csdn.net/jdsjlzx/article/details/51493552)
 
 [关于RxJava最友好的文章](https://mp.weixin.qq.com/s/6-0jFN_BwKOlwOK3kha90g)
 

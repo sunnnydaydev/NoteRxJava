@@ -10,9 +10,11 @@ import com.sunnyday.noterxjava.beans.Student
 import kotlinx.android.synthetic.main.activity_main.*
 import rx.Observable
 import rx.Subscriber
+import rx.android.schedulers.AndroidSchedulers
 import rx.functions.Action0
 import rx.functions.Action1
 import rx.functions.Func1
+import rx.schedulers.Schedulers
 
 
 class MainActivity : AppCompatActivity() {
@@ -280,7 +282,7 @@ class MainActivity : AppCompatActivity() {
         //使用flapMap，参数还是Func1，但是Func1的第二个参数是Observable<T> 类型
         Observable.from(students).flatMap(object : Func1<Student, Observable<Course>> {
             override fun call(t: Student?): Observable<Course> {
-                // 包装成Observable对象返回。
+                // 包装成Observable<Course>对象返回。
                 return Observable.from(t?.mList)
             }
 
